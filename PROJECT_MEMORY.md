@@ -5,7 +5,7 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 
 ---
 
-## Current Phase: Phase 1 (Completed)
+## Current Phase: Phase 2 (Completed)
 
 ---
 
@@ -20,26 +20,31 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 - **DAO Abstractions**: Implemented JDBC CRUD DAO logic for `Repository`, `CloneHistory`, `GitObject`, and `Branch` entities.
 
 ### Phase 1: Git Object Model, Hashing, Compression & Loose Storage
-- **Custom Doubly Linked List LRU Cache**: Implemented [LruCache](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/cache/LruCache.java) for $O(1)$ memory mapping of recently accessed Git objects.
-- **zlib Compression Utilities**: Implemented [CompressionUtils](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/CompressionUtils.java) for deflate/inflate compression streams.
-- **SHA-1 Crypto Utilities**: Implemented [HashUtils](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/HashUtils.java) for hashing byte streams and converting hex-binary.
-- **Git Object Models**: Implemented object inheritance mapping [BlobObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/BlobObject.java), [TreeObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/TreeObject.java), and [CommitObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/CommitObject.java).
-- **Tree Data Structure**: Implemented recursive file mode/path sorting rules inside `TreeObject` to match standard Git specifications.
-- **Loose Object Storage Service**: Implemented [ObjectStorageService](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/ObjectStorageService.java) to save and read compressed loose files under `.git/objects/ab/cdef...` and register metadata in the database index.
-- **Testing Coverage**: Added full testing suites verifying LruCache eviction, zlib compression, SHA-1 calculations, and object storage serialization/deserialization.
+- **Custom Doubly Linked List LRU Cache**: Implemented `LruCache` for $O(1)$ memory mapping.
+- **zlib Compression Utilities**: Implemented `CompressionUtils` for deflate/inflate compression streams.
+- **SHA-1 Crypto Utilities**: Implemented `HashUtils` for hashing byte streams.
+- **Git Object Models**: Implemented `BlobObject`, `TreeObject`, and `CommitObject`.
+- **Tree Data Structure**: Implemented recursive file mode/path sorting rules inside `TreeObject`.
+- **Loose Object Storage Service**: Implemented `ObjectStorageService` to save and read loose files under `.git/objects/ab/cdef...` and register metadata in the database index.
+
+### Phase 2: Network Layer & Git Smart HTTP Protocol
+- **pkt-line Framing Format**: Implemented [PktLine](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/network/PktLine.java) helper to serialize/deserialize Git's 4-byte hex packet lines, including support for delimiter and flush packets.
+- **Remote Git Reference Discovery**: Implemented [GitNetworkClient](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/network/GitNetworkClient.java) to request `/info/refs?service=git-upload-pack` using Java `HttpClient`.
+- **Database branch indexing**: Parsed reference discovery packet streams and mapped discovered branch HEADs (e.g., `refs/heads/*`) to the database `Branches` table via the `BranchDAO`.
+- **Unit Testing Coverage**: Developed mock test servers using JDK's standard `HttpServer` to test reference advertisement parsing, integrity checks, and data store indexing without external web dependencies.
 
 ---
 
 ## Architectural Decisions
 
 1. **Bare JDBC Database Access**: Direct JDBC queries were implemented rather than a heavy ORM framework to maintain low overhead.
-2. **Immutability of Git Objects**: `GitObjectBase` instances are constructed with immutable properties to mirror the read-only property of physical Git objects.
-3. **Decoupled Serializer/Parsers**: Serialization and parsing logic is kept inside the respective model classes to localize format constraints.
+2. **PktLine List Abstraction**: Stream parsing parses packet boundaries into a sequential `List<byte[]>` which keeps logic clean and isolates it from network sockets.
+3. **Mock HTTP Server for Integration Tests**: Used `com.sun.net.httpserver.HttpServer` in unit tests, allowing self-contained and reproducible testing of protocol semantics.
 
 ---
 
-## TODO List / Next Step (Phase 2)
-- [ ] Implement Git Smart HTTP Protocol client.
-- [ ] Make GET requests for `/info/refs?service=git-upload-pack` and parse references and capabilities.
-- [ ] Handle pkt-line format (Packet line formatting e.g., `001e# service=git-upload-pack\n`).
-- [ ] Write integration/unit tests for network packet serialization.
+## TODO List / Next Step (Phase 3)
+- [ ] Implement Git Smart protocol Upload-Pack POST call to request object packs (`git-upload-pack`).
+- [ ] Parse sideband multiplexing (demux channel 1 for raw packfile, channel 2 for progress).
+- [ ] Parse packfile header (signature `PACK`, version, number of objects).
+- [ ] Support delta compression reconstruction (rebuilding delta objects with OBJ_OFS_DELTA and OBJ_REF_DELTA offset base lookup).
