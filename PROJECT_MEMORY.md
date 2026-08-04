@@ -5,7 +5,7 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 
 ---
 
-## Current Phase: Phase 0 (Completed)
+## Current Phase: Phase 1 (Completed)
 
 ---
 
@@ -15,24 +15,31 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 - **Environment Verification**: Verified JDK 25 (Java 21+), Maven 3.9.9, and MariaDB 11.8.8 compatibility.
 - **Maven Configuration**: Initialized `pom.xml` with dependencies for MariaDB JDBC client, SLF4J, Logback, and JUnit 5 testing framework.
 - **Logging Configuration**: Formatted Logback console and file logging (`src/main/resources/logback.xml`).
-- **Database Schema**: Created `src/main/resources/schema.sql` defining `Repositories`, `CloneHistory`, `GitObjects`, and `Branches` tables.
-- **JDBC Connection Management**: Developed `DatabaseConfig.java` to load parameters from `db.properties` and `DatabaseConnectionManager.java` for Connection lifecycle control and automatic schema initialization.
-- **DAO Abstractions**: Implemented models and JDBC CRUD DAO logic for `Repository`, `CloneHistory`, `GitObject`, and `Branch` entities.
-- **Architecture Structure**: Established physical directory/package structure with `package-info.java` placeholder markers.
-- **Testing Verification**: Created `DatabaseConnectionManagerTest` unit test demonstrating connectivity, schema execution, and transactional model CRUD. The test suite builds and passes successfully.
+- **Database Schema**: Created `src/main/resources/schema.sql` defining database tables.
+- **JDBC Connection Management**: Developed connection configurations and lifecycle helpers.
+- **DAO Abstractions**: Implemented JDBC CRUD DAO logic for `Repository`, `CloneHistory`, `GitObject`, and `Branch` entities.
+
+### Phase 1: Git Object Model, Hashing, Compression & Loose Storage
+- **Custom Doubly Linked List LRU Cache**: Implemented [LruCache](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/cache/LruCache.java) for $O(1)$ memory mapping of recently accessed Git objects.
+- **zlib Compression Utilities**: Implemented [CompressionUtils](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/CompressionUtils.java) for deflate/inflate compression streams.
+- **SHA-1 Crypto Utilities**: Implemented [HashUtils](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/HashUtils.java) for hashing byte streams and converting hex-binary.
+- **Git Object Models**: Implemented object inheritance mapping [BlobObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/BlobObject.java), [TreeObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/TreeObject.java), and [CommitObject](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/CommitObject.java).
+- **Tree Data Structure**: Implemented recursive file mode/path sorting rules inside `TreeObject` to match standard Git specifications.
+- **Loose Object Storage Service**: Implemented [ObjectStorageService](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/ObjectStorageService.java) to save and read compressed loose files under `.git/objects/ab/cdef...` and register metadata in the database index.
+- **Testing Coverage**: Added full testing suites verifying LruCache eviction, zlib compression, SHA-1 calculations, and object storage serialization/deserialization.
 
 ---
 
 ## Architectural Decisions
 
-1. **Bare JDBC Database Access**: Direct JDBC queries were implemented rather than a heavy ORM framework to maintain low overhead and direct control over SQL query compatibility.
-2. **Schema Control**: The application manages its own schema setup on startup via resource-based SQL scripts in `DatabaseConnectionManager`, improving local setup simplicity.
-3. **Structured Package Decomposition**: Follows a decoupled modular layout dividing cli, core, git, network, checkout, database, cache, models, utils, and exceptions.
+1. **Bare JDBC Database Access**: Direct JDBC queries were implemented rather than a heavy ORM framework to maintain low overhead.
+2. **Immutability of Git Objects**: `GitObjectBase` instances are constructed with immutable properties to mirror the read-only property of physical Git objects.
+3. **Decoupled Serializer/Parsers**: Serialization and parsing logic is kept inside the respective model classes to localize format constraints.
 
 ---
 
-## TODO List / Next Step (Phase 1)
-- [ ] Implement Git Object representation (Blob, Tree, Commit, Tag).
-- [ ] Create SHA-1 hashing helpers and zlib compression/decompression utilities.
-- [ ] Develop custom parser to read Git objects from loose file structure.
-- [ ] Connect the object models to the `GitObjects` database DAO.
+## TODO List / Next Step (Phase 2)
+- [ ] Implement Git Smart HTTP Protocol client.
+- [ ] Make GET requests for `/info/refs?service=git-upload-pack` and parse references and capabilities.
+- [ ] Handle pkt-line format (Packet line formatting e.g., `001e# service=git-upload-pack\n`).
+- [ ] Write integration/unit tests for network packet serialization.
