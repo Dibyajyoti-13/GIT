@@ -5,7 +5,7 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 
 ---
 
-## Current Phase: Phase 4 (Completed)
+## Current Phase: Phase 5 (Completed)
 
 ---
 
@@ -14,7 +14,7 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 ### Phase 0: Infrastructure & Environment Setup
 - **Environment Verification**: Verified JDK 25 (Java 21+), Maven 3.9.9, and MariaDB 11.8.8 compatibility.
 - **Maven Configuration**: Initialized `pom.xml` with dependencies for MariaDB JDBC client, SLF4J, Logback, and JUnit 5 testing framework.
-- **Logging Configuration**: Formatted Logback console and file logging (`src/main/resources/logback.xml`).
+- **Logging Configuration**: Formatted Logback console and file logging.
 - **Database Schema**: Created `src/main/resources/schema.sql` defining database tables.
 - **JDBC Connection Management**: Developed connection configurations and lifecycle helpers.
 - **DAO Abstractions**: Implemented JDBC CRUD DAO logic for `Repository`, `CloneHistory`, `GitObject`, and `Branch` entities.
@@ -28,9 +28,9 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 - **Loose Object Storage Service**: Implemented `ObjectStorageService` to save and read loose files under `.git/objects/ab/cdef...` and register metadata in the database index.
 
 ### Phase 2: Network Layer & Git Smart HTTP Protocol
-- **pkt-line Framing Format**: Implemented `PktLine` helper to serialize/deserialize Git's 4-byte hex packet lines, including support for delimiter and flush packets.
-- **Remote Git Reference Discovery**: Implemented `GitNetworkClient` to request `/info/refs?service=git-upload-pack` using Java `HttpClient`.
-- **Database branch indexing**: Parsed reference discovery packet streams and mapped discovered branch HEADs (e.g., `refs/heads/*`) to the database `Branches` table via the `BranchDAO`.
+- **pkt-line Framing Format**: Implemented `PktLine` helper to serialize/deserialize Git's 4-byte hex packet lines.
+- **Remote Git Reference Discovery**: Implemented `GitNetworkClient` to request `/info/refs?service=git-upload-pack`.
+- **Database branch indexing**: Parsed reference discovery packet streams and mapped discovered branch HEADs to the database `Branches` table.
 
 ### Phase 3: Packfile Negotiation, Demultiplexing, and Parsing
 - **Sideband Channel Demultiplexing**: Implemented `SidebandDemuxer` to parse multiplexed smart protocol responses.
@@ -39,22 +39,24 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 - **Upload-pack Negotiation**: Extended `GitNetworkClient` to negotiate fetches via smart protocol POST requests.
 
 ### Phase 4: BFS Checkout & Directory Reconstruction
-- **Custom FIFO Queue**: Implemented [Queue](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/Queue.java) backed by a Singly Linked List, ensuring complete control over memory layouts during BFS traversal.
-- **Checkout Engine Service**: Developed [CheckoutService](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/checkout/CheckoutService.java) executing Breadth-First Search (BFS) starting at a target Commit's root tree, reconstructing directory subtrees, and generating physical files on disk from decompressed loose Blobs.
-- **Clone Attempt Status Tracking**: Integrated database logs in `CheckoutService` to track state transitions (`IN_PROGRESS`, `SUCCESS`, `FAILED`) in the database `CloneHistory` table.
-- **BFS Integration Tests**: Wrote comprehensive unit tests assembling mock tree objects, verifying filesystem extraction layouts, and asserting content integrity.
+- **Custom FIFO Queue**: Implemented `Queue` backed by a Singly Linked List.
+- **Checkout Engine Service**: Developed `CheckoutService` executing BFS commit tree traversal and filesystem extraction.
+- **Clone Attempt Status Tracking**: Integrated database logs in `CheckoutService` to track state transitions in the database `CloneHistory` table.
+
+### Phase 5: CLI Entrypoint & End-to-End Git Clone Execution
+- **GitCloneCLI Entry Point**: Implemented [GitCloneCLI](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/cli/GitCloneCLI.java) connecting all layers in a unified sequence: DB creation, URL parsing, Smart HTTP reference discovery, upload-pack negotiation, packfile binary parsing, and BFS file extraction.
+- **Testable Refactoring**: Extracted core clone flow into `cloneRepository` method to allow JUnit integration tests to assert operations without calling `System.exit()`.
+- **E2E Integration Testing**: Created [GitCloneCLITest](file:///home/delex/Documents/Playground/GIT/src/test/java/com/gitclone/cli/GitCloneCLITest.java) spinning up a mock HTTP server, negotiating and transmitting dynamic binary packfiles, executing E2E CLI clones, and asserting checkout output.
 
 ---
 
 ## Architectural Decisions
 
-1. **Bare JDBC Database Access**: Direct JDBC queries were implemented rather than a heavy ORM framework to maintain low overhead.
-2. **Singly Linked Queue for BFS**: Used a custom FIFO Queue to avoid importing standard Java collections, satisfying the systems-programming goal of implementing core algorithms manually.
-3. **Graceful Database Fallbacks**: Both parsing and checkout engines gracefully handle offline/missing database connections, making development, unit testing, and execution robust across offline environments.
+1. **Decoupled CLI Runner**: Business runner logic was extracted out of the JVM `main()` entrypoint into `cloneRepository()`, allowing fully testable assertion coverage without thread-termination side effects.
+2. **Dynamic SHA-1 Test Harness**: Unit test servers calculate mock object SHA-1 hashes dynamically using the production hashing utility rather than using hardcoded values, ensuring mock protocol handshakes align with parsed filesystem writes.
+3. **Data Structure Integration**: Seamlessly integrated custom Doubly Linked Lists (`LruCache`) and Singly Linked Lists (`Queue`) into the parsing cache and BFS extraction layers to minimize third-party library dependencies.
 
 ---
 
-## TODO List / Next Step (Phase 5)
-- [ ] Implement CLI parser in `com.gitclone.cli` accepting `<repository_url>` and `<destination_directory>`.
-- [ ] Implement the main execution sequence connecting network discovery, packfile fetching, object parsing, and BFS checkout.
-- [ ] Write integration test verifying complete end-to-end execution.
+## TODO List / Next Step
+- All planned phases are fully completed. The project compiles successfully, handles MariaDB storage and JDBC metadata tracking, supports Git smart HTTP networking, parses loose and delta-packed files, and performs complete directory checkouts.
