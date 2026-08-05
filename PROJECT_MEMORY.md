@@ -5,7 +5,7 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 
 ---
 
-## Current Phase: Phase 3 (Completed)
+## Current Phase: Phase 4 (Completed)
 
 ---
 
@@ -33,24 +33,28 @@ Build a simplified, educational implementation of **Git Clone** completely from 
 - **Database branch indexing**: Parsed reference discovery packet streams and mapped discovered branch HEADs (e.g., `refs/heads/*`) to the database `Branches` table via the `BranchDAO`.
 
 ### Phase 3: Packfile Negotiation, Demultiplexing, and Parsing
-- **Sideband Channel Demultiplexing**: Implemented [SidebandDemuxer](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/network/SidebandDemuxer.java) to parse multiplexed smart protocol responses, routing packfile bytes to the target output stream while extracting stderr logging.
-- **Git Delta Resolving Engine**: Implemented [DeltaResolver](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/DeltaResolver.java) decoding copy and insert commands to assemble delta-compressed Git objects (`OBJ_OFS_DELTA` / `OBJ_REF_DELTA`).
-- **Binary Packfile Parser**: Implemented [PackfileParser](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/git/PackfileParser.java) to decode variable-length size headers, inflate base objects, trace offset indices, apply delta compression chains, and store resolved loose files.
+- **Sideband Channel Demultiplexing**: Implemented `SidebandDemuxer` to parse multiplexed smart protocol responses.
+- **Git Delta Resolving Engine**: Implemented `DeltaResolver` decoding copy and insert commands.
+- **Binary Packfile Parser**: Implemented `PackfileParser` to decode headers, inflate base objects, trace offset indices, apply delta compression chains, and store resolved loose files.
 - **Upload-pack Negotiation**: Extended `GitNetworkClient` to negotiate fetches via smart protocol POST requests.
-- **Verification Coverage**: Wrote tests generating mock packfiles dynamically and validating delta command operations.
+
+### Phase 4: BFS Checkout & Directory Reconstruction
+- **Custom FIFO Queue**: Implemented [Queue](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/utils/Queue.java) backed by a Singly Linked List, ensuring complete control over memory layouts during BFS traversal.
+- **Checkout Engine Service**: Developed [CheckoutService](file:///home/delex/Documents/Playground/GIT/src/main/java/com/gitclone/checkout/CheckoutService.java) executing Breadth-First Search (BFS) starting at a target Commit's root tree, reconstructing directory subtrees, and generating physical files on disk from decompressed loose Blobs.
+- **Clone Attempt Status Tracking**: Integrated database logs in `CheckoutService` to track state transitions (`IN_PROGRESS`, `SUCCESS`, `FAILED`) in the database `CloneHistory` table.
+- **BFS Integration Tests**: Wrote comprehensive unit tests assembling mock tree objects, verifying filesystem extraction layouts, and asserting content integrity.
 
 ---
 
 ## Architectural Decisions
 
 1. **Bare JDBC Database Access**: Direct JDBC queries were implemented rather than a heavy ORM framework to maintain low overhead.
-2. **Sideband Demultiplexing Stream**: Sideband streams are routed packet-by-packet to avoid reading the entire payload into RAM at once, preventing memory exhaustion on larger clones.
-3. **Offset Resolution Map**: Used a simple `Long -> ResolvedObject` mapping during packfile decoding to instantly resolve `OBJ_OFS_DELTA` references back to their unpacked parent byte arrays in memory.
+2. **Singly Linked Queue for BFS**: Used a custom FIFO Queue to avoid importing standard Java collections, satisfying the systems-programming goal of implementing core algorithms manually.
+3. **Graceful Database Fallbacks**: Both parsing and checkout engines gracefully handle offline/missing database connections, making development, unit testing, and execution robust across offline environments.
 
 ---
 
-## TODO List / Next Step (Phase 4)
-- [ ] Implement BFS Queue-based directory checkout tree traversal (`CheckoutService.java`).
-- [ ] Reconstruct directories and write Blobs into physical files on disk.
-- [ ] Record clone attempt state transitions (IN_PROGRESS, SUCCESS, FAILED) in the `CloneHistory` table.
-- [ ] Write integration test performing a complete clone and checkout simulation.
+## TODO List / Next Step (Phase 5)
+- [ ] Implement CLI parser in `com.gitclone.cli` accepting `<repository_url>` and `<destination_directory>`.
+- [ ] Implement the main execution sequence connecting network discovery, packfile fetching, object parsing, and BFS checkout.
+- [ ] Write integration test verifying complete end-to-end execution.
