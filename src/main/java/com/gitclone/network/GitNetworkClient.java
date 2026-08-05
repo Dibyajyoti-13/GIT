@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -135,5 +136,49 @@ public class GitNetworkClient {
 
         logger.info("Reference discovery completed. Discovered {} references.", refs.size());
         return refs;
+    }
+
+    /**
+     * Sends a POST request to git-upload-pack negotiating wants, receives the multiplexed sideband stream,
+     * demultiplexes it, and writes the raw packfile to the target output stream.
+     *
+     * @param repoUrl Base remote repository URL
+     * @param wantSha1 Commit SHA-1 we want to fetch
+     * @param packOutput Target stream for the raw packfile
+     * @throws IOException if network or protocol parsing fails
+     * @throws InterruptedException if request is interrupted
+     */
+    public void fetchPackfile(String repoUrl, String wantSha1, java.io.OutputStream packOutput) throws IOException, InterruptedException {
+        String baseUrl = repoUrl;
+        if (baseUrl.endsWith(".git")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 4);
+        }
+
+        URI uri = URI.create(baseUrl + "/git-upload-pack");
+        logger.info("Negotiating Upload Pack: {}", uri);
+
+        ByteArrayOutputStream requestBody = new ByteArrayOutputStream();
+        // Request the want commit with capability advertisement (side-band is crucial)
+        requestBody.write(PktLine.format("want " + wantSha1 + " side-band thin-pack\n"));
+        requestBody.write(PktLine.formatFlush());
+        requestBody.write(PktLine.format("done\n"));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(uri)
+                .header("User-Agent", "git/2.34.1")
+                .header("Content-Type", "application/x-git-upload-pack-request")
+                .header("Accept", "application/x-git-upload-pack-result")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody.toByteArray()))
+                .build();
+
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+        if (response.statusCode() != 200) {
+            throw new IOException("git-upload-pack negotiation failed. Status: " + response.statusCode());
+        }
+
+        byte[] body = response.body();
+        logger.info("De-multiplexing smart protocol sideband response ({} bytes)...", body.length);
+        SidebandDemuxer.demux(body, packOutput);
     }
 }
